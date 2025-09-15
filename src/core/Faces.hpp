@@ -38,6 +38,7 @@
 #define _FACES_HPP_
 
 #include <vector>
+typedef unsigned int uint;
 
 using namespace std;
 
@@ -61,6 +62,7 @@ public:
   // array.  Including the -1 face separators as corners simplify many
   // of the algorithms.
   int     getNumberOfCorners()                     const;
+
 
   // If iF is a valid face index, this method returns the number of
   // corners of the face iF. Otherwise it returns 0.
@@ -90,7 +92,9 @@ public:
 private:
 
   // TODO
-
+    uint nV;
+    vector<int> coordIndex;
+    vector<int> firstCornerFace;
 };
 
 #endif /* _FACES_HPP_ */

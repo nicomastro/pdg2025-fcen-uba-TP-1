@@ -47,44 +47,80 @@ const char* SaverStl::_ext = "stl";
 
 //////////////////////////////////////////////////////////////////////
 bool SaverStl::save(const char* filename, SceneGraph& wrl) const {
-  bool success = false;
-  if(filename!=(char*)0) {
+    bool success = false;
+    if(filename!=(char*)0) {
+         bool isShape = false;
+         bool isIndexedFaceSet = false;
+         bool isTriangleMesh = false;
+         bool hasNormals = false;
+         IndexedFaceSet* ixFaceSet = NULL;
+         vector<pNode> children = wrl.getChildren();
 
-    // Check these conditions
+         // 1) the SceneGraph should have a single child
+         bool onlyChild = children.size() == 1;
+         if(onlyChild){
+            // 2) the child should be a Shape node
+            pNode ch = children[0];
+            isShape = ch->isShape();
+            if (isShape){
+                // 3) the geometry of the Shape node should be an IndexedFaceSet node
+                Shape* shape_ch = (Shape*)ch;
+                isIndexedFaceSet = shape_ch->hasGeometryIndexedFaceSet();
+                if(isIndexedFaceSet){
+                    // 4) the IndexedFaceSet should be a triangle mesh
+                    // 5) the IndexedFaceSet should have normals per face
+                   ixFaceSet = (IndexedFaceSet*) shape_ch->getGeometry();
+                   isTriangleMesh = ixFaceSet->isTriangleMesh();
+                   hasNormals = ixFaceSet->getNormalBinding() == IndexedFaceSet::PB_PER_FACE;
+                 }
+            }
 
-    // 1) the SceneGraph should have a single child
-    // 2) the child should be a Shape node
-    // 3) the geometry of the Shape node should be an IndexedFaceSet node
+        }
+        bool isValidFile = isShape && isIndexedFaceSet && isTriangleMesh && hasNormals;
+        if (isValidFile) {
+            FILE* fp = fopen(filename,"w");
+            if(	fp!=(FILE*)0) {
 
-    // - construct an instance of the Faces class from the IndexedFaceSet
-    // - remember to delete it when you are done with it (if necessary)
-    //   before returning
+                // if set, use ifs->getName() otherwise use filename,
+                const string& name = ixFaceSet->getName();
+                string sfilename = string(filename);
+                std::size_t init_pos = sfilename.find_last_of("/") + 1;
+                sfilename = sfilename.substr(init_pos, sfilename.find_last_of(".") - init_pos);
+                sfilename = (name == "" ? sfilename : name);
+                fprintf(fp,"solid %s\n",sfilename.c_str());
 
-    // 4) the IndexedFaceSet should be a triangle mesh
-    // 5) the IndexedFaceSet should have normals per face
+                // - construct an instance of the Faces class from the IndexedFaceSet
+                Faces faces = Faces(ixFaceSet->getNumberOfCoord(), ixFaceSet->getCoordIndex());
+                auto normals = ixFaceSet->getNormal();
+                auto coords = ixFaceSet->getCoord();
+                float face_normal[3];
+                float vertex_coords[3];
+                for(int iF = 0; iF < faces.getNumberOfFaces(); ++iF){
+                    int iV = 0;
+                    int vertex = -1;
 
-    // if (all the conditions are satisfied) {
+                    // write normal
+                    for(int i = 0; i < 3; ++i) face_normal[i] = normals[3*iF + i];
+                    fprintf(fp,"facet normal %f %f %f\n", face_normal[0], face_normal[1], face_normal[2]);
 
-    FILE* fp = fopen(filename,"w");
-    if(	fp!=(FILE*)0) {
+                    // write face vertex
+                    fprintf(fp, "  outer loop\n");
+                    while((vertex = faces.getFaceVertex(iF, iV++)) > -1){
+                        for(int i = 0; i < 3; ++i) vertex_coords[i] = coords[3*vertex + i];
+                        fprintf(fp,"    vertex %f %f %f\n", vertex_coords[0], vertex_coords[1], vertex_coords[2]);
+                    }
+                    fprintf(fp, "  endloop\n");
+                    fprintf(fp, "endfacet\n");
+                }
+                fprintf(fp, "endsolid %s", sfilename.c_str());
 
-      // if set, use ifs->getName()
-      // otherwise use filename,
-      // but first remove directory and extension
-
-      fprintf(fp,"solid %s\n",filename);
-
-      // TODO ...
-      // for each face {
-      //   ...
-      // }
-      
-      fclose(fp);
-      success = true;
+            // - remember to delete it when you are done with it (if necessary)
+            //   before returning
+            fclose(fp);
+            success = true;
+            }
+        }
     }
 
-    // } endif (all the conditions are satisfied)
-
-  }
-  return success;
+    return success;
 }

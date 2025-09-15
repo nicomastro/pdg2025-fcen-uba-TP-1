@@ -49,6 +49,25 @@
 
 const char* LoaderStl::_ext = "stl";
 
+
+
+bool parse_face(TokenizerFile& tkn, Vec3f& n, Vec3f* v){
+    if(!(tkn == "facet" && tkn.expecting("normal")))
+        throw new StrException("Expecting facet normal");
+    if(!tkn.getVec3f(n))
+        throw new StrException("Expecting Vec3f");
+    if(!(tkn.expecting("outer") && tkn.expecting("loop")))
+        throw new StrException("Expecting outer loop");
+    for(unsigned char j = 0; j<3; ++j)
+        if(!(tkn.expecting("vertex") && tkn.getVec3f(v[j])))
+            throw new StrException("Expecting vertex Vec3f");
+    if(!(tkn.expecting("endloop") && tkn.expecting("endfacet")))
+        throw new StrException("Expecting endfacet");
+    return true;
+}
+
+
+
 bool LoaderStl::load(const char* filename, SceneGraph& wrl) {
   bool success = false;
 
@@ -58,58 +77,73 @@ bool LoaderStl::load(const char* filename, SceneGraph& wrl) {
 
   FILE* fp = (FILE*)0;
   try {
-
     // open the file
     if(filename==(char*)0) throw new StrException("filename==null");
     fp = fopen(filename,"r");
     if(fp==(FILE*)0) throw new StrException("fp==(FILE*)0");
 
     // use the io/Tokenizer class to parse the input ascii file
-
     TokenizerFile tkn(fp);
+
     // first token should be "solid"
     if(tkn.expecting("solid") && tkn.get()) {
-      string stlName = tkn; // second token should be the solid name
 
-      // TODO ...
+        // second token should be the solid name
+        string stlName = tkn;
 
-      // create the scene graph structure :
-      // 1) the SceneGraph should have a single Shape node a child
-      // 2) the Shape node should have an Appearance node in its appearance field
-      // 3) the Appearance node should have a Material node in its material field
-      // 4) the Shape node should have an IndexedFaceSet node in its geometry node
+        // create the scene graph structure :
+        // 1) the SceneGraph should have a single Shape node a child
+        // 2) the Shape node should have an Appearance node in its appea
+        Shape* shape_child = new Shape();
+        Appearance* app = new Appearance();
+        shape_child->setAppearance(app);
 
-      // from the IndexedFaceSet
-      // 5) get references to the coordIndex, coord, and normal arrays
-      // 6) set the normalPerVertex variable to false (i.e., normals per face)  
+        // 3) the Appearance node should have a Material node in its material field
+        Material* material = new Material();
+        app->setMaterial(material);
 
-      // the file should contain a list of triangles in the following format
+        // 4) the Shape node should have an IndexedFaceSet node in its geometry node
+        IndexedFaceSet* ixFaceSet = new IndexedFaceSet();
+        shape_child->setGeometry(ixFaceSet);
+        wrl.addChild(shape_child);
 
-      // facet normal ni nj nk
-      //   outer loop
-      //     vertex v1x v1y v1z
-      //     vertex v2x v2y v2z
-      //     vertex v3x v3y v3z
-      //   endloop
-      // endfacet
+        // from the IndexedFaceSet
+        // 5) get references to the coordIndex, coord, and normal arrays
+        vector<int>& coordIndex = ixFaceSet->getCoordIndex();
+        vector<float>&normals = ixFaceSet->getNormal();
+        vector<float>&coords = ixFaceSet->getCoord();
 
-      // - run an infinite loop to parse all the faces
-      // - write a private method to parse each face within the loop
-      // - the method should return true if successful, and false if not
-      // - if your method returns tru
-      //     update the normal, coord, and coordIndex variables
-      // - if your method returns false
-      //     throw an StrException explaining why the method failed
+        // 6) set the normalPerVertex variable to false (i.e., normals per face)
+        ixFaceSet->setNormalPerVertex(false);
 
+        // ASSUMES .stl file ends with "endsolid" (!)
+        Vec3f n;
+        Vec3f* v = new Vec3f[3];
+        int vertex = 0;
+        while(tkn.get() && tkn != "endsolid"){
+
+            // - write a private method to parse each face within the loop
+            if(parse_face(tkn, n, v)){
+                for(unsigned char j = 0; j<3; ++j)
+                    normals.push_back(n[j]);
+                for(unsigned char i = 0; i<3; ++i)
+                    for(unsigned char j = 0; j<3; ++j)
+                        coords.push_back(v[i][j]);
+                for(unsigned char j = 0; j<3; ++j)
+                    coordIndex.push_back(vertex++);
+                coordIndex.push_back(-1);
+            }
+        }
+
+        // close the file
+        success = true;
+        delete[] v;
+        fclose(fp);
     }
+  } catch(StrException* e) {
 
-    // close the file (this statement may not be reached)
-    fclose(fp);
-    
-  } catch(StrException* e) { 
-    
     if(fp!=(FILE*)0) fclose(fp);
-    fprintf(stderr,"ERROR | %s\n",e->what());
+    printf("ERROR | %s\n",e->what());
     delete e;
 
   }

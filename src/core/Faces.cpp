@@ -38,46 +38,71 @@
 #include "Faces.hpp"
   
 Faces::Faces(const int nV, const vector<int>& coordIndex) {
-  // TODO
+  // TODO agregar chequeos
+  this->nV = nV;
+  this->coordIndex = coordIndex;
+  this->firstCornerFace.push_back(0);
+  uint faceIndex = 0;
+  for (uint i = 0; i < coordIndex.size(); ++i){
+      if(coordIndex[i] == -1){
+        this->firstCornerFace.push_back(i+1);
+        this->coordIndex[i] *= ++faceIndex;
+      }
+  }
 }
 
 int Faces::getNumberOfVertices() const {
-  // TODO
-  return 0;
+    return  this->nV;
 }
 
 int Faces::getNumberOfFaces() const {
-  // TODO
-  return 0;
+    return this->firstCornerFace.size() - 1;
 }
 
 int Faces::getNumberOfCorners() const {
-  // TODO
-  return 0;
+    return this->coordIndex.size();
 }
 
+
 int Faces::getFaceSize(const int iF) const {
-  // TODO
-  return 0;
+
+    int size = -1;
+    if(iF < this->getNumberOfFaces())
+        while(this->coordIndex[this->firstCornerFace[iF] + (++size)] != -1);
+    return size;
 }
 
 int Faces::getFaceFirstCorner(const int iF) const {
-  // TODO
-  return -1;
+    int firstCorner = -1;
+    if(iF < this->getNumberOfFaces())
+        firstCorner = this->firstCornerFace[iF];
+    return firstCorner;
 }
 
 int Faces::getFaceVertex(const int iF, const int j) const {
-  // TODO
-  return -1;
-}
+    int vertex = -1;
+    if(iF < this->getNumberOfFaces() && j < this->getFaceSize(iF))
+        vertex = this->coordIndex[this->getFaceFirstCorner(iF) + j];
+    return vertex;
+    }
 
 int Faces::getCornerFace(const int iC) const {
-  // TODO
-  return -1;
+  if (iC >= this->getNumberOfCorners()) // refactor
+    return -1;
+  int i = -1;
+  int face = 0;
+  while((face = this->coordIndex[iC + (++i)]) > 0);
+  face = i == 0 ? -1 : -1*face - 1;
+  return face;
 }
 
 int Faces::getNextCorner(const int iC) const {
-  // TODO
-  return -1;
+    if (iC >= this->getNumberOfCorners()) // refactor
+        return -1;
+    int nextCoord = -1;
+    if(this->coordIndex[iC] > 0)
+        if((nextCoord = this->coordIndex[iC+1]) < 0)
+            nextCoord = this->getFaceFirstCorner(-1*nextCoord - 1);
+    return nextCoord;
 }
 
