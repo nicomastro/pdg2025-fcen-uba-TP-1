@@ -68,7 +68,7 @@ int Faces::getFaceSize(const int iF) const {
 
     int size = -1;
     if(iF < this->getNumberOfFaces())
-        while(this->coordIndex[this->firstCornerFace[iF] + (++size)] != -1);
+        while(this->coordIndex[this->firstCornerFace[iF] + (++size)] > -1);
     return size;
 }
 
